@@ -13,8 +13,9 @@ const app = express();
 const server = http.createServer(app);
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://crm-frontend-atozeevisas.vercel.app",
-  "https://crm-frontend-live.vercel.app",
+  "https://crm-frontend-atozeevisas.vercel.app", // keep this if you use it
+  "https://crm-frontend-live.vercel.app",        // keep this if needed
+  "https://crmfrontend-omega.vercel.app",        // ✅ <== ADD THIS
 ];
 const io = new Server(server, {
   cors: {
