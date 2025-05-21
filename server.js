@@ -12,15 +12,14 @@ const { getTenantDB } = require("./config/sequelizeManager");
 const app = express();
 const server = http.createServer(app);
 
-// ✅ CORS ALLOWED ORIGINS
+// ✅ CORS Configuration
 const allowedOrigins = [
   "http://localhost:3000",
   "https://crmfrontend-omega.vercel.app",
   "https://crm-frontend-atozeevisas.vercel.app",
-  "https://crm-frontend-live.vercel.app"
+  "https://crm-frontend-live.vercel.app",
 ];
 
-// ✅ CORS OPTIONS for Express and Preflight
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -32,17 +31,15 @@ const corsOptions = {
   credentials: true,
 };
 
-const io = new Server(server, {
-  cors: corsOptions,
-});
-
-const PORT = process.env.PORT || 5000;
-
-// ✅ Middleware Setup
+// ✅ Apply CORS before routes
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
+
+const io = new Server(server, {
+  cors: corsOptions,
+});
 
 // 🔐 Middlewares
 const auth = require("./middleware/auth");
@@ -80,24 +77,22 @@ app.use("/api/customer-details", auth(), tenantResolver, require("./routes/Custo
 app.use("/api/customer-stages", auth(), tenantResolver, require("./routes/CustomerStages.routes"));
 app.use("/api/eod-report", tenantResolver, require("./routes/EodReport.routes"));
 
-// 🧠 Connected User Store
+// 🧠 Track Connected Users
 const connectedUsers = {};
 
-// 🔌 SOCKET.IO Events
 io.on("connection", (socket) => {
   console.log("🟢 New socket connection:", socket.id);
 
   socket.on("set_user", async ({ userId, companyId }) => {
+    if (!userId || !companyId) return;
+
+    socket.userId = userId;
+    socket.companyId = companyId;
+    connectedUsers[userId] = socket.id;
+
     try {
-      if (!userId || !companyId) return;
-
-      socket.userId = userId;
-      socket.companyId = companyId;
-      connectedUsers[userId] = socket.id;
-
       const tenantDB = await getTenantDB(companyId);
       await tenantDB.Users.update({ is_online: true }, { where: { id: userId } });
-
       io.emit("status_update", { userId, is_online: true });
     } catch (err) {
       console.error("⚠️ Error setting user online:", err);
@@ -112,6 +107,7 @@ io.on("connection", (socket) => {
         const tenantDB = await getTenantDB(companyId);
         await tenantDB.Users.update({ is_online: false }, { where: { id: userId } });
         io.emit("status_update", { userId, is_online: false });
+        console.log("🔴 User disconnected:", userId);
       } catch (err) {
         console.error("⚠️ Error setting user offline:", err);
       }
@@ -143,7 +139,7 @@ module.exports = {
 
 // 🚀 Start Server
 if (process.env.NODE_ENV !== "test") {
-  server.listen(PORT, () =>
-    console.log(`🚀 Server running on http://localhost:${PORT}`)
-  );
+  server.listen(process.env.PORT || 5000, () => {
+    console.log(`🚀 Server running on http://localhost:${process.env.PORT || 5000}`);
+  });
 }
