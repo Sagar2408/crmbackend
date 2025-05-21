@@ -41,6 +41,13 @@ const io = new Server(server, {
   cors: corsOptions,
 });
 
+// ✅ Test route to confirm CORS
+app.get("/ping", (req, res) => {
+  res.set("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.set("Access-Control-Allow-Credentials", "true");
+  res.send("pong");
+});
+
 // 🔐 Middlewares
 const auth = require("./middleware/auth");
 const authMaster = require("./middleware/authMaster");
@@ -136,6 +143,16 @@ module.exports = {
   app,
   sendNotificationToUser,
 };
+
+// ✅ Global Error Handler to ensure CORS headers on errors
+app.use((err, req, res, next) => {
+  console.error("🔥 Uncaught error:", err.message);
+  res
+    .status(500)
+    .set("Access-Control-Allow-Origin", req.headers.origin || "*")
+    .set("Access-Control-Allow-Credentials", "true")
+    .json({ error: err.message || "Internal Server Error" });
+});
 
 // 🚀 Start Server
 if (process.env.NODE_ENV !== "test") {
