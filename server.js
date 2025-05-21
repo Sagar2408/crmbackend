@@ -15,9 +15,7 @@ const server = http.createServer(app);
 // ✅ CORS Configuration
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://crmfrontend-omega.vercel.app",
-  "https://crm-frontend-atozeevisas.vercel.app",
-  "https://crm-frontend-live.vercel.app",
+  "https://crmfrontend-omega.vercel.app"
 ];
 
 const corsOptions = {
