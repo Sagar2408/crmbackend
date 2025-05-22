@@ -104,6 +104,25 @@ io.on("connection", (socket) => {
     }
   });
 
+  // 📺 Screen Cast Relay
+  socket.on("screen-data", (data) => {
+    const { executiveId, image } = data;
+    io.emit("screen-data", { executiveId, image });
+  });
+
+  // 🎥 Video Stream Relay
+  socket.on("video-data", (data) => {
+    const { executiveId, buffer } = data;
+    io.emit("video-data", { executiveId, buffer });
+  });
+
+  // 🎙️ Audio Stream Relay
+  socket.on("audio-data", (data) => {
+    const { executiveId, buffer } = data;
+    io.emit("audio-data", { executiveId, buffer });
+  });
+
+  // 🔌 Disconnect Cleanup
   socket.on("disconnect", async () => {
     const { userId, companyId } = socket;
     if (userId && companyId) {
@@ -142,7 +161,7 @@ module.exports = {
   sendNotificationToUser,
 };
 
-// ✅ Global Error Handler to ensure CORS headers on errors
+// ✅ Global Error Handler
 app.use((err, req, res, next) => {
   console.error("🔥 Uncaught error:", err.message);
   res
