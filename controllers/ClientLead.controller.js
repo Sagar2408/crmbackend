@@ -52,9 +52,17 @@ const processExcel = (filePath) => {
       const mappedKey = mapFieldName(key);
       let value = record[key];
 
-      if (mappedKey === "phone" && typeof value === "number") {
-        value = value.toString().split(".")[0];
-      }
+      if (mappedKey === "phone") {
+  if (typeof value === "number") {
+    value = value.toFixed(0); // convert numeric to string without decimals
+  } else if (typeof value === "string" && value.includes("E")) {
+    // Handle scientific notation string
+    const num = Number(value);
+    if (!isNaN(num)) {
+      value = num.toFixed(0);
+    }
+  }
+}
 
       mapped[mappedKey] = value;
     }
