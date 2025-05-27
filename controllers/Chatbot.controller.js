@@ -1,39 +1,38 @@
-const fetch = require("node-fetch"); // Import node-fetch for making API requests
+const fetch = require("node-fetch");
 
-// Function to generate AI-based responses using the Gemini API
+// Function to generate AI-based responses using Gemini API
 const generateResponse = async (req, res) => {
-  const { prompt } = req.body; // Extract the prompt from the request body
-  const API_KEY = process.env.GEMINI_API_KEY; // Retrieve API key from environment variables
-  const API_URL = process.env.GEMINI_API_URL; // Retrieve API URL from environment variables
+  const { prompt } = req.body;
+  const API_KEY = process.env.GEMINI_API_KEY;
+  const API_URL = process.env.GEMINI_API_URL;
 
-  // Validate that a prompt is provided
   if (!prompt) {
     return res.status(400).json({ error: "Prompt is required" });
   }
 
   try {
-    // Make a POST request to the Gemini API with the user prompt
+    console.log("✅ Chatbot hit with prompt:", prompt);
+
     const response = await fetch(`${API_URL}?key=${API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }], // Construct API request body
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
       }),
     });
 
-    const data = await response.json(); // Parse response JSON
+    const data = await response.json();
 
-    // Handle API errors if response is not OK
     if (!response.ok) {
       return res.status(response.status).json({ error: data.error.message });
     }
 
-    // Send the AI-generated response back to the client
-    res.json({ message: data.candidates[0].content.parts[0].text });
+    const reply = data.candidates[0].content.parts[0].text;
+    return res.json({ message: reply });
   } catch (error) {
-    console.error("API Error:", error); // Log any errors encountered
-    res.status(500).json({ error: "Internal Server Error" }); // Handle server errors
+    console.error("🔥 Gemini API error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
-module.exports = { generateResponse }; // Export the function for use in other parts of the application
+module.exports = { generateResponse };
