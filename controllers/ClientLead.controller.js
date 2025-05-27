@@ -40,12 +40,12 @@ const processCSV = (filePath) => {
   });
 };
 
-// Excel parsing logic (fixed)
+// ✅ Excel parsing logic (FINALIZED)
 const processExcel = (filePath) => {
   const workbook = xlsx.readFile(filePath);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-  // ✅ Fixed: raw: true to prevent scientific notation
+  // ✅ Important: raw: true avoids Excel formatting like E+ notation
   const data = xlsx.utils.sheet_to_json(sheet, { raw: true });
 
   return data.map((record) => {
@@ -54,16 +54,9 @@ const processExcel = (filePath) => {
       const mappedKey = mapFieldName(key);
       let value = record[key];
 
-      // ✅ Fix phone number formatting
+      // ✅ Ensure phone number is a clean string
       if (mappedKey === "phone") {
-        if (typeof value === "number") {
-          value = value.toFixed(0);
-        } else if (typeof value === "string" && value.includes("E")) {
-          const num = Number(value);
-          if (!isNaN(num)) {
-            value = num.toFixed(0);
-          }
-        }
+        value = String(value).replace(/\.0+$/, "");
       }
 
       mapped[mappedKey] = value;
@@ -72,7 +65,7 @@ const processExcel = (filePath) => {
   });
 };
 
-// Upload handler
+// Upload handler with validation
 const uploadFile = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -95,7 +88,6 @@ const uploadFile = async (req, res) => {
       return res.status(400).json({ message: "Unsupported file format" });
     }
 
-    // Clean and insert one by one
     const allowedFields = [
       "name", "email", "phone", "education", "experience", "state", "country",
       "dob", "leadAssignDate", "countryPreference", "assignedToExecutive", "status"
@@ -130,7 +122,7 @@ const uploadFile = async (req, res) => {
   }
 };
 
-// Other controller functions (unchanged)
+// Other controller functions remain unchanged
 const getClientLeads = async (req, res) => {
   try {
     const { ClientLead } = req.db;
