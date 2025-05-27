@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { generateResponse } = require("../controllers/Chatbot.controller");
 
-router.post("/chatbot", generateResponse);
+// ✅ This matches /api/chatbot correctly
+router.post("/", generateResponse);
 
 module.exports = router;
