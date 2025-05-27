@@ -40,11 +40,13 @@ const processCSV = (filePath) => {
   });
 };
 
-// Excel parsing logic
+// Excel parsing logic (fixed)
 const processExcel = (filePath) => {
   const workbook = xlsx.readFile(filePath);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = xlsx.utils.sheet_to_json(sheet, { raw: false });
+
+  // ✅ Fixed: raw: true to prevent scientific notation
+  const data = xlsx.utils.sheet_to_json(sheet, { raw: true });
 
   return data.map((record) => {
     const mapped = {};
@@ -52,17 +54,17 @@ const processExcel = (filePath) => {
       const mappedKey = mapFieldName(key);
       let value = record[key];
 
+      // ✅ Fix phone number formatting
       if (mappedKey === "phone") {
-  if (typeof value === "number") {
-    value = value.toFixed(0); // convert numeric to string without decimals
-  } else if (typeof value === "string" && value.includes("E")) {
-    // Handle scientific notation string
-    const num = Number(value);
-    if (!isNaN(num)) {
-      value = num.toFixed(0);
-    }
-  }
-}
+        if (typeof value === "number") {
+          value = value.toFixed(0);
+        } else if (typeof value === "string" && value.includes("E")) {
+          const num = Number(value);
+          if (!isNaN(num)) {
+            value = num.toFixed(0);
+          }
+        }
+      }
 
       mapped[mappedKey] = value;
     }
@@ -70,7 +72,7 @@ const processExcel = (filePath) => {
   });
 };
 
-// Upload handler with validation & error catching
+// Upload handler
 const uploadFile = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -128,7 +130,7 @@ const uploadFile = async (req, res) => {
   }
 };
 
-// Other API functions (keep as-is or add as needed)
+// Other controller functions (unchanged)
 const getClientLeads = async (req, res) => {
   try {
     const { ClientLead } = req.db;
