@@ -56,6 +56,7 @@ app.use("/api/masteruser", require("./routes/MasterUser.routes"));
 app.use("/api/company", require("./routes/Company.routes"));
 
 // 📦 Tenant Routes
+app.use("/api/chatbot", require("./routes/Chatbot.routes")); // ✅ no middleware
 app.use("/api", tenantResolver, require("./routes/User.routes"));
 app.use("/api/manager", tenantResolver, require("./routes/Manager.routes"));
 app.use("/api/deals", auth(), tenantResolver, require("./routes/Deal.routes"));
@@ -64,7 +65,6 @@ app.use("/api/meetings", auth(), tenantResolver, require("./routes/Meeting.route
 app.use("/api/opportunities", auth(), tenantResolver, require("./routes/Opportunity.routes"));
 app.use("/api/client-leads", auth(), tenantResolver, require("./routes/ClientLead.routes"));
 app.use("/api/invoice", auth(), tenantResolver, require("./routes/Invoices.routes"));
-app.use("/api/chatbot", require("./routes/Chatbot.routes")); // Skip tenant middleware
 app.use("/api/executive-activities", auth(), tenantResolver, require("./routes/ExecutiveActivity.routes"));
 app.use("/api/freshleads", auth(), tenantResolver, require("./routes/FreshLead.routes"));
 app.use("/api/converted", auth(), tenantResolver, require("./routes/ConvertedClient.routes"));

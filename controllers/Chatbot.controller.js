@@ -11,7 +11,7 @@ const generateResponse = async (req, res) => {
   }
 
   try {
-    console.log("✅ Chatbot hit with prompt:", prompt);
+    console.log("✅ Chatbot controller hit:", req.body.prompt);
 
     const response = await fetch(`${API_URL}?key=${API_KEY}`, {
       method: "POST",
