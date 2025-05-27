@@ -4,21 +4,24 @@ const multer = require("multer");
 const xlsx = require("xlsx");
 const csv = require("csv-parser");
 
-// Allowed dynamic field mapping
-const nameFields = ["name", "username", "full name", "contact name", "lead name"];
+// Dynamic field mapping
+const nameFields = [
+  "name",
+  "username",
+  "full name",
+  "contact name",
+  "lead name",
+];
 const phoneFields = ["phone", "ph.no", "contact number", "mobile", "telephone"];
-const emailFields = ["email", "email address", "e-mail", "mail"];
 
 // Multer config
 const upload = multer({ dest: "uploads/" });
 
 // Map incoming field name to standardized field
 const mapFieldName = (fieldName) => {
-  const lower = fieldName.toLowerCase();
-  if (nameFields.includes(lower)) return "name";
-  if (phoneFields.includes(lower)) return "phone";
-  if (emailFields.includes(lower)) return "email";
-  return lower;
+  if (nameFields.includes(fieldName.toLowerCase())) return "name";
+  if (phoneFields.includes(fieldName.toLowerCase())) return "phone";
+  return fieldName;
 };
 
 // CSV parsing logic
@@ -30,8 +33,7 @@ const processCSV = (filePath) => {
       .on("data", (row) => {
         const mappedRow = {};
         for (const key in row) {
-          const mappedKey = mapFieldName(key);
-          mappedRow[mappedKey] = row[key];
+          mappedRow[mapFieldName(key)] = row[key];
         }
         fileData.push(mappedRow);
       })
@@ -44,33 +46,17 @@ const processCSV = (filePath) => {
 const processExcel = (filePath) => {
   const workbook = xlsx.readFile(filePath);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = xlsx.utils.sheet_to_json(sheet, { raw: false });
-
+  const data = xlsx.utils.sheet_to_json(sheet);
   return data.map((record) => {
     const mapped = {};
     for (const key in record) {
-      const mappedKey = mapFieldName(key);
-      let value = record[key];
-
-      if (mappedKey === "phone") {
-  if (typeof value === "number") {
-    value = value.toFixed(0); // convert numeric to string without decimals
-  } else if (typeof value === "string" && value.includes("E")) {
-    // Handle scientific notation string
-    const num = Number(value);
-    if (!isNaN(num)) {
-      value = num.toFixed(0);
-    }
-  }
-}
-
-      mapped[mappedKey] = value;
+      mapped[mapFieldName(key)] = record[key];
     }
     return mapped;
   });
 };
 
-// Upload handler with validation & error catching
+// Upload handler
 const uploadFile = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -93,48 +79,30 @@ const uploadFile = async (req, res) => {
       return res.status(400).json({ message: "Unsupported file format" });
     }
 
-    // Clean and insert one by one
-    const allowedFields = [
-      "name", "email", "phone", "education", "experience", "state", "country",
-      "dob", "leadAssignDate", "countryPreference", "assignedToExecutive", "status"
-    ];
-
-    let successCount = 0;
-    for (const record of data) {
-      const cleaned = {};
-      for (const key of allowedFields) {
-        if (record[key]) cleaned[key] = record[key];
+    try {
+      for (const record of data) {
+        await ClientLead.create(record);
       }
-
-      if (!cleaned.name) {
-        console.warn("Skipping row with no name:", record);
-        continue;
-      }
-
-      try {
-        await ClientLead.create(cleaned);
-        successCount++;
-      } catch (err) {
-        console.error("Error saving record:", cleaned);
-        console.error("Sequelize Error:", err.message);
-      }
+      res.status(200).json({ message: "File uploaded and data saved" });
+    } catch (err) {
+      console.error("Save error:", err);
+      res.status(500).json({ message: "Failed to save data" });
+    } finally {
+      fs.unlink(file.path, () => {});
     }
-
-    fs.unlink(file.path, () => {});
-    res.status(200).json({ message: `${successCount} leads imported successfully` });
   } catch (err) {
-    console.error("Upload error:", err);
-    res.status(500).json({ message: "Failed to save data", error: err.message });
+    res.status(500).json({ message: "Error uploading file" });
   }
 };
 
-// Other API functions (keep as-is or add as needed)
+// Get leads with pagination
 const getClientLeads = async (req, res) => {
   try {
     const { ClientLead } = req.db;
     const limit = parseInt(req.query.limit) === 20 ? 20 : 10;
     const offset = parseInt(req.query.offset) || 0;
-    if (offset < 0) return res.status(400).json({ message: "Invalid offset value" });
+    if (offset < 0)
+      return res.status(400).json({ message: "Invalid offset value" });
 
     const { count, rows } = await ClientLead.findAndCountAll({ limit, offset });
 
@@ -153,19 +121,29 @@ const getClientLeads = async (req, res) => {
   }
 };
 
+// Assign executive to lead
 const assignExecutive = async (req, res) => {
   try {
-    if (!req.db) return res.status(500).json({ message: "Database connection not found" });
+    if (!req.db) {
+      return res
+        .status(500)
+        .json({ message: "Database connection not found in request" });
+    }
 
     const { ClientLead, Users, Notification } = req.db;
     const { executiveName, id } = req.body;
 
     if (!executiveName || !id) {
-      return res.status(400).json({ message: "Executive name and lead ID are required" });
+      return res
+        .status(400)
+        .json({ message: "Executive name and lead ID are required" });
     }
 
     const lead = await ClientLead.findByPk(id);
-    if (!lead) return res.status(404).json({ message: "Client lead not found" });
+    if (!lead) {
+      console.log("Lead not found for ID:", id);
+      return res.status(404).json({ message: "Client lead not found" });
+    }
 
     lead.assignedToExecutive = executiveName;
     lead.status = "Assigned";
@@ -175,29 +153,48 @@ const assignExecutive = async (req, res) => {
       where: { username: executiveName, role: "Executive" },
     });
 
-    if (!executive) return res.status(404).json({ message: "Executive not found" });
+    if (!executive) {
+      console.log("Executive not found:", executiveName);
+      return res.status(404).json({ message: "Executive not found" });
+    }
 
-    const message = `You have been assigned a new lead: ${lead.name || "Unnamed Client"} (Lead ID: ${lead.id})`;
-    await Notification.create({ userId: executive.id, message });
+    const message = `You have been assigned a new lead: ${
+      lead.name || "Unnamed Client"
+    } (Lead ID: ${lead.id})`;
 
-    res.status(200).json({ message: "Executive assigned and notified successfully", lead });
+    await Notification.create({
+      userId: executive.id,
+      message,
+    });
+
+    res
+      .status(200)
+      .json({ message: "Executive assigned and notified successfully", lead });
   } catch (err) {
     console.error("Error assigning executive:", err);
-    res.status(500).json({ message: "Failed to assign executive", error: err.message });
+    res
+      .status(500)
+      .json({ message: "Failed to assign executive", error: err.message });
   }
 };
 
+// Get leads assigned to an executive
 const getLeadsByExecutive = async (req, res) => {
   try {
     const { ClientLead } = req.db;
     const { executiveName } = req.query;
 
-    if (!executiveName) return res.status(400).json({ message: "Executive name is required" });
+    if (!executiveName)
+      return res.status(400).json({ message: "Executive name is required" });
 
-    const leads = await ClientLead.findAll({ where: { assignedToExecutive: executiveName } });
+    const leads = await ClientLead.findAll({
+      where: { assignedToExecutive: executiveName },
+    });
 
     if (!leads.length) {
-      return res.status(404).json({ message: `No leads found for executive: ${executiveName}` });
+      return res.status(404).json({
+        message: `No leads found for executive: ${executiveName}`,
+      });
     }
 
     res.status(200).json({ message: "Leads retrieved successfully", leads });
@@ -206,9 +203,11 @@ const getLeadsByExecutive = async (req, res) => {
   }
 };
 
+// Get deal funnel stats
 const getDealFunnel = async (req, res) => {
   try {
     const { ClientLead } = req.db;
+
     const leads = await ClientLead.findAll();
 
     const totalLeads = leads.length;
@@ -219,7 +218,6 @@ const getDealFunnel = async (req, res) => {
       "Follow-Up": 0,
       Closed: 0,
       Rejected: 0,
-      Meeting: 0,
     };
 
     leads.forEach((lead) => {
@@ -229,7 +227,7 @@ const getDealFunnel = async (req, res) => {
     });
 
     res.status(200).json({
-      message: "Deal funnel data retrieved successfully",
+      message: "Deal funnel data retrieved successfu  lly",
       data: { totalLeads, statusCounts },
     });
   } catch (err) {
@@ -237,7 +235,6 @@ const getDealFunnel = async (req, res) => {
   }
 };
 
-// Export all functions
 module.exports = {
   upload,
   uploadFile,
