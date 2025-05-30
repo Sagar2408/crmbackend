@@ -291,23 +291,38 @@ exports.getExecutiveActivityByDate = async (req, res) => {
     const { ExecutiveId, date } = req.query;
     const { ExecutiveActivity } = req.db;
 
+    // Debug logs
+    console.log("Incoming Query Params:", { ExecutiveId, date });
+
     if (!ExecutiveId || !date) {
-      return res.status(400).json({ message: "ExecutiveId and date are required" });
+      return res
+        .status(400)
+        .json({ message: "ExecutiveId and date are required" });
     }
+
+    const formattedDate = new Date(date).toISOString().split("T")[0];
+    console.log("Formatted date used in DB query:", formattedDate);
 
     const activity = await ExecutiveActivity.findOne({
       where: {
-        ExecutiveId,
-        activityDate: date,
+        ExecutiveId: Number(ExecutiveId),
+        activityDate: formattedDate,
       },
     });
 
     if (!activity) {
-      return res.status(404).json({ message: "No activity found for the selected date" });
+      return res.status(404).json({
+        message: `No activity found for ExecutiveId ${ExecutiveId} on ${formattedDate}`,
+      });
     }
 
-    res.json({ activity });
+    return res.status(200).json({ activity });
+
   } catch (error) {
-    res.status(500).json({ message: "Error fetching activity by date", error });
+    console.error("🔥 Error in getExecutiveActivityByDate:", error);
+    return res.status(500).json({
+      message: "Error fetching activity by date",
+      error: error.message,
+    });
   }
 };
