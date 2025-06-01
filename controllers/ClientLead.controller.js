@@ -4,15 +4,14 @@ const multer = require("multer");
 const xlsx = require("xlsx");
 const csv = require("csv-parser");
 
-// Allowed dynamic field mapping
+// Dynamic field mapping
 const nameFields = ["name", "username", "full name", "contact name", "lead name"];
 const phoneFields = ["phone", "ph.no", "contact number", "mobile", "telephone"];
 const emailFields = ["email", "email address", "e-mail", "mail"];
 
-// Multer config
+// Multer setup
 const upload = multer({ dest: "uploads/" });
 
-// Map incoming field name to standardized field
 const mapFieldName = (fieldName) => {
   const lower = fieldName.toLowerCase().trim();
   if (nameFields.includes(lower)) return "name";
@@ -21,7 +20,7 @@ const mapFieldName = (fieldName) => {
   return lower;
 };
 
-// CSV parsing logic
+// CSV parser
 const processCSV = (filePath) => {
   return new Promise((resolve, reject) => {
     const fileData = [];
@@ -40,11 +39,11 @@ const processCSV = (filePath) => {
   });
 };
 
-// Excel parsing logic
+// ✅ SUPER SMART Excel parser
 const processExcel = (filePath) => {
   const workbook = xlsx.readFile(filePath);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = xlsx.utils.sheet_to_json(sheet, { raw: true });
+  const data = xlsx.utils.sheet_to_json(sheet, { raw: false, defval: "" });
 
   return data.map((record) => {
     const mapped = {};
@@ -52,15 +51,27 @@ const processExcel = (filePath) => {
       const mappedKey = mapFieldName(key);
       let value = record[key];
 
-      // Normalize phone numbers
+      // 📞 Phone number special logic
       if (mappedKey === "phone") {
-        // If numeric and in scientific notation or float, handle properly
+        if (typeof value === "object" && value !== null && value.w) {
+          value = value.w; // Excel weird cell format
+        }
+
+        // If number format, fix it
         if (typeof value === "number") {
           value = value.toFixed(0);
         }
 
-        // Final cleanup: remove non-digit characters
-        value = String(value).replace(/[^\d]/g, "").slice(0, 15);
+        // If formula, extract safely
+        value = String(value)
+          .replace(/[^\d]/g, "") // remove non-numeric
+          .slice(0, 15);
+
+        // If too short, treat as invalid
+        if (value.length < 8) {
+          console.warn("⚠️ Invalid phone value found:", record[key]);
+          value = "0";
+        }
       }
 
       mapped[mappedKey] = typeof value === "string" ? value.trim() : value;
@@ -126,8 +137,7 @@ const uploadFile = async (req, res) => {
   }
 };
 
-// Other API routes remain unchanged
-
+// Other API handlers (unchanged)
 const getClientLeads = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -154,8 +164,6 @@ const getClientLeads = async (req, res) => {
 
 const assignExecutive = async (req, res) => {
   try {
-    if (!req.db) return res.status(500).json({ message: "Database connection not found" });
-
     const { ClientLead, Users, Notification } = req.db;
     const { executiveName, id } = req.body;
 
@@ -236,7 +244,6 @@ const getDealFunnel = async (req, res) => {
   }
 };
 
-// Export all functions
 module.exports = {
   upload,
   uploadFile,
