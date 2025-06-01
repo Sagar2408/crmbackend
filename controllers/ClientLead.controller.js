@@ -6,13 +6,13 @@ const csv = require("csv-parser");
 
 // Allowed field mappings
 const nameFields = ["name", "username", "full name", "contact name", "lead name"];
-const phoneFields = ["phone", "ph.no", "contact number", "mobile", "telephone"];
+const phoneFields = ["phone", "phoneno", "ph.no", "contact number", "mobile", "telephone"];
 const emailFields = ["email", "email address", "e-mail", "mail"];
 
 // Multer setup
 const upload = multer({ dest: "uploads/" });
 
-// Utility: Normalize field names
+// Field normalization
 const mapFieldName = (fieldName) => {
   const lower = fieldName.toLowerCase().trim();
   if (nameFields.includes(lower)) return "name";
@@ -40,7 +40,7 @@ const processCSV = (filePath) => {
   });
 };
 
-// ✅ EXCEL parser with bulletproof phone logic
+// Excel parser
 const processExcel = (filePath) => {
   const workbook = xlsx.readFile(filePath);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -52,7 +52,6 @@ const processExcel = (filePath) => {
       const mappedKey = mapFieldName(key);
       let value = record[key];
 
-      // 📞 Robust phone number cleaner
       if (mappedKey === "phone") {
         if (typeof value === "object" && value !== null && value.w) {
           value = value.w;
@@ -60,7 +59,7 @@ const processExcel = (filePath) => {
 
         value = String(value).replace(/[^\d]/g, "").slice(0, 15);
         if (value.length < 8) {
-          console.warn("⚠️ Invalid phone number found:", record[key]);
+          console.warn("⚠️ Invalid phone number:", record[key]);
           value = "0";
         }
       }
@@ -111,7 +110,7 @@ const uploadFile = async (req, res) => {
         continue;
       }
 
-      console.log("💾 Cleaned Lead:", cleaned); // Debug log
+      console.log("💾 Cleaned Lead:", cleaned); // Important debug
 
       try {
         await ClientLead.create(cleaned);
@@ -130,7 +129,7 @@ const uploadFile = async (req, res) => {
   }
 };
 
-// GET all leads
+// Other functions
 const getClientLeads = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -155,7 +154,6 @@ const getClientLeads = async (req, res) => {
   }
 };
 
-// Assign executive to lead
 const assignExecutive = async (req, res) => {
   try {
     const { ClientLead, Users, Notification } = req.db;
@@ -188,7 +186,6 @@ const assignExecutive = async (req, res) => {
   }
 };
 
-// GET leads by executive
 const getLeadsByExecutive = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -208,7 +205,6 @@ const getLeadsByExecutive = async (req, res) => {
   }
 };
 
-// Deal funnel stats
 const getDealFunnel = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -240,7 +236,7 @@ const getDealFunnel = async (req, res) => {
   }
 };
 
-// Export all
+// Exports
 module.exports = {
   upload,
   uploadFile,
