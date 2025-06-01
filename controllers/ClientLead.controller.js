@@ -4,7 +4,7 @@ const multer = require("multer");
 const xlsx = require("xlsx");
 const csv = require("csv-parser");
 
-// Dynamic field mapping
+// Allowed field mappings
 const nameFields = ["name", "username", "full name", "contact name", "lead name"];
 const phoneFields = ["phone", "ph.no", "contact number", "mobile", "telephone"];
 const emailFields = ["email", "email address", "e-mail", "mail"];
@@ -12,6 +12,7 @@ const emailFields = ["email", "email address", "e-mail", "mail"];
 // Multer setup
 const upload = multer({ dest: "uploads/" });
 
+// Utility: Normalize field names
 const mapFieldName = (fieldName) => {
   const lower = fieldName.toLowerCase().trim();
   if (nameFields.includes(lower)) return "name";
@@ -39,7 +40,7 @@ const processCSV = (filePath) => {
   });
 };
 
-// ✅ SUPER SMART Excel parser
+// ✅ EXCEL parser with bulletproof phone logic
 const processExcel = (filePath) => {
   const workbook = xlsx.readFile(filePath);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -51,25 +52,15 @@ const processExcel = (filePath) => {
       const mappedKey = mapFieldName(key);
       let value = record[key];
 
-      // 📞 Phone number special logic
+      // 📞 Robust phone number cleaner
       if (mappedKey === "phone") {
         if (typeof value === "object" && value !== null && value.w) {
-          value = value.w; // Excel weird cell format
+          value = value.w;
         }
 
-        // If number format, fix it
-        if (typeof value === "number") {
-          value = value.toFixed(0);
-        }
-
-        // If formula, extract safely
-        value = String(value)
-          .replace(/[^\d]/g, "") // remove non-numeric
-          .slice(0, 15);
-
-        // If too short, treat as invalid
+        value = String(value).replace(/[^\d]/g, "").slice(0, 15);
         if (value.length < 8) {
-          console.warn("⚠️ Invalid phone value found:", record[key]);
+          console.warn("⚠️ Invalid phone number found:", record[key]);
           value = "0";
         }
       }
@@ -116,15 +107,17 @@ const uploadFile = async (req, res) => {
       }
 
       if (!cleaned.name) {
-        console.warn("Skipping row with no name:", record);
+        console.warn("⛔ Skipping row with no name:", record);
         continue;
       }
+
+      console.log("💾 Cleaned Lead:", cleaned); // Debug log
 
       try {
         await ClientLead.create(cleaned);
         successCount++;
       } catch (err) {
-        console.error("Error saving record:", cleaned);
+        console.error("❌ Error saving record:", cleaned);
         console.error("Sequelize Error:", err.message);
       }
     }
@@ -137,7 +130,7 @@ const uploadFile = async (req, res) => {
   }
 };
 
-// Other API handlers (unchanged)
+// GET all leads
 const getClientLeads = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -162,6 +155,7 @@ const getClientLeads = async (req, res) => {
   }
 };
 
+// Assign executive to lead
 const assignExecutive = async (req, res) => {
   try {
     const { ClientLead, Users, Notification } = req.db;
@@ -194,6 +188,7 @@ const assignExecutive = async (req, res) => {
   }
 };
 
+// GET leads by executive
 const getLeadsByExecutive = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -213,6 +208,7 @@ const getLeadsByExecutive = async (req, res) => {
   }
 };
 
+// Deal funnel stats
 const getDealFunnel = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -244,6 +240,7 @@ const getDealFunnel = async (req, res) => {
   }
 };
 
+// Export all
 module.exports = {
   upload,
   uploadFile,
