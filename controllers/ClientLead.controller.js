@@ -14,7 +14,7 @@ const upload = multer({ dest: "uploads/" });
 
 // Map incoming field name to standardized field
 const mapFieldName = (fieldName) => {
-  const lower = fieldName.toLowerCase();
+  const lower = fieldName.toLowerCase().trim();
   if (nameFields.includes(lower)) return "name";
   if (phoneFields.includes(lower)) return "phone";
   if (emailFields.includes(lower)) return "email";
@@ -40,12 +40,10 @@ const processCSV = (filePath) => {
   });
 };
 
-// ✅ Excel parsing logic (FINALIZED)
+// Excel parsing logic
 const processExcel = (filePath) => {
   const workbook = xlsx.readFile(filePath);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-
-  // ✅ Important: raw: true avoids Excel formatting like E+ notation
   const data = xlsx.utils.sheet_to_json(sheet, { raw: true });
 
   return data.map((record) => {
@@ -54,18 +52,24 @@ const processExcel = (filePath) => {
       const mappedKey = mapFieldName(key);
       let value = record[key];
 
-      // ✅ Ensure phone number is a clean string
+      // Normalize phone numbers
       if (mappedKey === "phone") {
-        value = String(value).replace(/\.0+$/, "");
+        // If numeric and in scientific notation or float, handle properly
+        if (typeof value === "number") {
+          value = value.toFixed(0);
+        }
+
+        // Final cleanup: remove non-digit characters
+        value = String(value).replace(/[^\d]/g, "").slice(0, 15);
       }
 
-      mapped[mappedKey] = value;
+      mapped[mappedKey] = typeof value === "string" ? value.trim() : value;
     }
     return mapped;
   });
 };
 
-// Upload handler with validation
+// Upload handler
 const uploadFile = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -122,7 +126,8 @@ const uploadFile = async (req, res) => {
   }
 };
 
-// Other controller functions remain unchanged
+// Other API routes remain unchanged
+
 const getClientLeads = async (req, res) => {
   try {
     const { ClientLead } = req.db;
