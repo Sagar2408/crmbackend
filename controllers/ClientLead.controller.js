@@ -5,7 +5,7 @@ const xlsx = require("xlsx");
 const csv = require("csv-parser");
 
 // Allowed field mappings
-const nameFields = ["name", "username", "full name", "contact name", "lead name"];
+const nameFields = ["name", "username", "full name", "contact name", "lead name","firstname"];
 const phoneFields = ["phone", "phoneno", "ph.no", "contact number", "mobile", "telephone"];
 const emailFields = ["email", "email address", "e-mail", "mail"];
 
