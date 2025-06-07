@@ -20,6 +20,7 @@ const allowedOrigins = [
   "https://crm-frontend-atozeevisas.vercel.app",
   "https://crm-frontend-live.vercel.app",
   "https://crm-frontend-eta-olive.vercel.app",
+  "https://crmfrontend-omega.vercel.app",
 ];
 
 const io = new Server(server, {
