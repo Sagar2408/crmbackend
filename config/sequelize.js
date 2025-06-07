@@ -6,6 +6,7 @@ module.exports = function initializeModels(sequelize) {
   db.sequelize = sequelize;
 
   // Load models – no third argument, models handle their own table names
+  db.CallDetails = require("../models/CallDetails.model")(sequelize, Sequelize);
   db.Users = require("../models/User.model")(sequelize, Sequelize);
   db.Deal = require("../models/Deal.model")(sequelize, Sequelize);
   db.Lead = require("../models/Lead.model")(sequelize, Sequelize);
