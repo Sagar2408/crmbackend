@@ -45,7 +45,7 @@ app.use((req, res, next) => {
   console.log("Body:", req.body);
   next();
 });
-app.use("/api/calldetails", require("./routes/CallDetails.route"));
+app.use("/api/calldetails", require("./routes/CallDetails.routes"));
 // 🔐 Middleware for protected routes
 const auth = require("./middleware/auth");
 const authMaster = require("./middleware/authMaster");
