@@ -45,7 +45,7 @@ app.use((req, res, next) => {
   console.log("Body:", req.body);
   next();
 });
-app.use("/api/calldetails", require("./routes/CallDetails.routes"));
+
 // 🔐 Middleware for protected routes
 const auth = require("./middleware/auth");
 const authMaster = require("./middleware/authMaster");
@@ -56,6 +56,7 @@ app.use("/api/masteruser", require("./routes/MasterUser.routes")); // public log
 app.use("/api/company", require("./routes/Company.routes")); // includes both public & protected
 
 // Tenant routes
+app.use("/api/calldetails", auth(), tenantResolver, require("./routes/CallDetails.routes"));
 app.use("/api", tenantResolver, require("./routes/User.routes"));
 app.use("/api/manager", tenantResolver, require("./routes/Manager.routes"));
 app.use("/api/hr", tenantResolver, require("./routes/Hr.routes"));
