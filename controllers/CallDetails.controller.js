@@ -2,24 +2,28 @@ const { CallDetails } = require("../db");
 
 const saveCallDetails = async (req, res) => {
   try {
-    const { clientName, clientPhone, recordingPath, callStartTime, callEndTime } = req.body;
+    const { clientName, clientPhone, recordingPath: rawPath, callStartTime, callEndTime } = req.body;
 
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized: User ID missing from token" });
     }
 
-    if (!clientName || !clientPhone || !recordingPath || !callStartTime || !callEndTime) {
+    if (!clientName || !clientPhone || !rawPath || !callStartTime || !callEndTime) {
       return res.status(400).json({ error: "All fields are required" });
     }
+
+    const recordingPath = `Downloads/${rawPath}`;
 
     const newCall = await CallDetails.create({
       executiveId: userId,
       clientName,
       clientPhone,
       recordingPath,
-      callStartTime,
-      callEndTime,
+      startTime: callStartTime,
+      endTime: callEndTime,
+      durationSeconds:
+        Math.floor((new Date(callEndTime) - new Date(callStartTime)) / 1000),
     });
 
     return res.status(201).json({
