@@ -1,5 +1,5 @@
 const { Sequelize } = require("sequelize");
-const initModels = require("./sequelize"); // dynamic model loader
+const initializeModels = require('../config/sequelize'); // dynamic model loader
 const { Company } = require("./masterSequelize");
 
 const tenantConnections = {}; // Cache

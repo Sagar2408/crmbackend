@@ -1,5 +1,5 @@
 const { Sequelize } = require("sequelize");
-const initializeModels = require('../db/sequelize');
+const initializeModels = require('../config/sequelize');
 
 const tenantDBCache = {}; // ✅ cache to reuse connections
 
