@@ -1,46 +1,59 @@
 const saveCallDetails = async (req, res) => {
   try {
-    const db = req.db; // 👈 Get tenant-specific DB instance
-    const { CallDetails } = db;
+    // 🧠 Log the incoming request body
+    console.log("📥 Incoming Call Details:", req.body);
 
-    const {
-      clientName,
-      clientPhone,
-      recordingPath: rawPath,
-      callStartTime,
-      callEndTime,
-    } = req.body;
-
+    // ✅ Extract from request
+    const { clientName, clientPhone, recordingPath, callStartTime, callEndTime } = req.body;
     const userId = req.user?.id;
+
+    // 🔐 Check user auth
     if (!userId) {
+      console.warn("⛔ Unauthorized: No user ID in token");
       return res.status(401).json({ error: "Unauthorized: User ID missing from token" });
     }
 
-    // Check for missing fields
-    if (!clientName || !clientPhone || !rawPath || !callStartTime || !callEndTime) {
+    // ❗ Validate inputs
+    if (!clientName || !clientPhone || !recordingPath || !callStartTime || !callEndTime) {
+      console.warn("❗ Missing fields in call details");
       return res.status(400).json({ error: "All fields are required" });
     }
 
-    // Final full logical recording path
-    const recordingPath = `Downloads/${rawPath}`;
+    // 🧠 Get tenant DB instance
+    const db = req.db;
+    if (!db) {
+      console.error("❌ Tenant DB not found in request");
+      return res.status(500).json({ error: "Tenant DB not available" });
+    }
 
-    const newCall = await CallDetails.create({
+    // 📦 Log before save
+    console.log("💾 Saving call details to tenant DB:", {
       executiveId: userId,
       clientName,
       clientPhone,
-      recordingPath,
-      startTime: callStartTime,
-      endTime: callEndTime,
-      durationSeconds: Math.floor((new Date(callEndTime) - new Date(callStartTime)) / 1000),
+      recordingPath: `Downloads/${recordingPath}`,
+      callStartTime,
+      callEndTime,
     });
 
+    // 💾 Save the entry
+    const newCall = await db.CallDetails.create({
+      executiveId: userId,
+      clientName,
+      clientPhone,
+      recordingPath: `Downloads/${recordingPath}`,
+      callStartTime,
+      callEndTime,
+    });
+
+    // ✅ Success
+    console.log("✅ Call recording details saved:", newCall.id);
     return res.status(201).json({
       message: "Call recording details saved successfully",
       data: newCall,
     });
-
   } catch (error) {
-    console.error("❌ Error saving call details:", error);
+    console.error("🔥 Error saving call details:", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
 };
