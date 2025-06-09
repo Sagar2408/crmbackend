@@ -11,12 +11,11 @@ const saveCallDetails = async (req, res) => {
 
     const userId = req.user?.id;
 
-    // 🔐 Auth check
+    // 🔐 Auth + field validation
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized: No user ID in token" });
     }
 
-    // 🔍 Field validation
     if (!clientName || !clientPhone || !recordingPath || !callStartTime || !callEndTime || !duration) {
       return res.status(400).json({ error: "All fields are required" });
     }
@@ -26,11 +25,12 @@ const saveCallDetails = async (req, res) => {
       return res.status(500).json({ error: "Tenant DB not available" });
     }
 
+    // 🧠 Create call details record (only metadata)
     const newCall = await db.CallDetails.create({
       executiveId: userId,
       clientName,
       clientPhone,
-      recordingPath,
+      recordingPath, // ✅ Only save the path string (no file)
       startTime: callStartTime,
       endTime: callEndTime,
       durationSeconds: parseInt(duration, 10)
@@ -38,7 +38,7 @@ const saveCallDetails = async (req, res) => {
 
     return res.status(201).json({
       message: "Call details saved successfully",
-      data: newCall,
+      data: newCall
     });
   } catch (error) {
     console.error("🔥 Error saving call details:", error);

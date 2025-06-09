@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const { saveCallDetails } = require("../controllers/CallDetails.controller");
-const auth = require("../middleware/auth"); // 👈 Your existing middleware
+const auth = require("../middleware/auth");
+const multer = require("multer");
+const upload = multer(); // ✅ To parse FormData
 
-// POST route to save call details
-router.post("/", auth(), saveCallDetails); // 👈 No roles restriction for now
+// ✅ Route to save only metadata (no file upload)
+router.post("/", auth(), upload.none(), saveCallDetails);
 
 module.exports = router;
