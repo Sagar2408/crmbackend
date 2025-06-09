@@ -6,6 +6,7 @@ const multer = require("multer");
 const upload = multer(); // ✅ To parse FormData
 
 // ✅ Route to save only metadata (no file upload)
-router.post("/", auth(), upload.none(), saveCallDetails);
+router.post("/", auth(), upload.any(), saveCallDetails);
+
 
 module.exports = router;
