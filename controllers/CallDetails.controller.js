@@ -1,50 +1,47 @@
 const saveCallDetails = async (req, res) => {
   try {
-    console.log("📥 [SAVE CALL DETAILS]");
-
-    console.log("👉 req.body:", req.body);
-    console.log("👉 req.user:", req.user);
-    console.log("👉 req.db.CallDetails:", !!req.db?.CallDetails);
-
     const {
+      executiveId,
       clientName,
       clientPhone,
       recordingPath,
       callStartTime,
       callEndTime,
-      duration,
+      duration
     } = req.body;
 
-    const userId = req.user?.id;
+    console.log("📥 Received Call Metadata:", {
+      executiveId,
+      clientName,
+      clientPhone,
+      recordingPath,
+      callStartTime,
+      callEndTime,
+      duration
+    });
 
-    if (!userId) {
-      return res.status(401).json({ error: "❌ Unauthorized: No user ID in token" });
-    }
-
-    if (!clientName || !clientPhone || !recordingPath || !callStartTime || !callEndTime || !duration) {
-      return res.status(400).json({ error: "❌ All fields are required" });
+    if (!executiveId || !clientName || !clientPhone || !recordingPath || !callStartTime || !callEndTime || !duration) {
+      return res.status(400).json({ error: "All fields are required" });
     }
 
     const db = req.db;
-    if (!db) {
-      return res.status(500).json({ error: "❌ Tenant DB not available" });
+    if (!db || !db.CallDetails) {
+      return res.status(500).json({ error: "CallDetails model not available in tenant DB" });
     }
 
     const newCall = await db.CallDetails.create({
-      executiveId: userId,
+      executiveId,
       clientName,
       clientPhone,
       recordingPath,
       startTime: callStartTime,
       endTime: callEndTime,
-      durationSeconds: parseInt(duration, 10),
+      durationSeconds: parseInt(duration, 10)
     });
 
-    console.log("✅ Saved call to DB:", newCall.toJSON());
-
     return res.status(201).json({
-      message: "✅ Call details saved successfully",
-      data: newCall,
+      message: "✅ Call details saved",
+      data: newCall
     });
   } catch (error) {
     console.error("🔥 Error saving call details:", error);
