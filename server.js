@@ -36,6 +36,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.options("*", cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use((req, res, next) => {
   console.log("📥 [REQUEST]");
