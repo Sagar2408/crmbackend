@@ -1,55 +1,42 @@
-const { Sequelize } = require("sequelize");
-const initializeModels = require('../config/sequelize');
+require("dotenv").config();
+const { Sequelize, DataTypes } = require("sequelize");
 
-const tenantDBCache = {}; // ✅ cache to reuse connections
-
-async function getTenantDB(companyId) {
-  // If already initialized, reuse it
-  if (tenantDBCache[companyId]) return tenantDBCache[companyId];
-
-  try {
-    // Fetch company config from MasterDB
-    const masterDb = require("../config/masterDb");
-    const company = await masterDb.Company.findOne({ where: { id: companyId } });
-
-    if (!company) {
-      throw new Error(`❌ Company with ID ${companyId} not found`);
-    }
-
-    const { db_name, db_user, db_password, db_host } = company;
-
-    // Create Sequelize instance with keepAlive
-    const sequelize = new Sequelize(db_name, db_user, db_password, {
-      host: db_host,
-      dialect: "mysql",
-      logging: false,
-      dialectOptions: {
-        keepAlive: true,
-        connectTimeout: 20000
-      },
-      pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000,
-      },
-    });
-
-    // Test connection
-    await sequelize.authenticate();
-    console.log(`✅ Connected to Tenant DB: ${company.name}`);
-
-    // Initialize models and associations
-    const models = initializeModels(sequelize);
-
-    // Save to cache
-    tenantDBCache[companyId] = models;
-
-    return models;
-  } catch (err) {
-    console.error(`❌ [TENANT] Error resolving tenant:`, err.message);
-    throw err;
+// Create a connection to MasterDB
+const sequelize = new Sequelize(
+  process.env.MASTER_DB_NAME,
+  process.env.MASTER_DB_USER,
+  process.env.MASTER_DB_PASSWORD,
+  {
+    host: process.env.MASTER_DB_HOST,
+    port: process.env.MASTER_DB_PORT || 3306,
+    dialect: "mysql",
+    logging: false,
+    pool: {
+      max: 10, // Maximum number of connection in pool
+      min: 0, // Minimum number of connection in pool
+      acquire: 30000, // Maximum time, in ms, that pool will try to get connection before throwing error
+      idle: 10000, // Maximum time, in ms, that a connection can be idle before being released
+    },
   }
-}
+);
 
-module.exports = { getTenantDB };
+// Test MasterDB connection
+sequelize
+  .authenticate()
+  .then(() => console.log("✅ Connected to MasterDB"))
+  .catch((err) => console.error("❌ Unable to connect to MasterDB:", err));
+
+// Initialize Company model
+const db = {};
+db.Sequelize = Sequelize;
+db.sequelize = sequelize;
+db.Company = require("../models/Company.model")(sequelize, DataTypes);
+db.MasterUser = require("../models/MasterUser.model")(sequelize, DataTypes);
+
+// Sync schema (optional, safe for dev)
+sequelize
+  .sync({ alter: true })
+  .then(() => console.log("✅ MasterDB tables synced"))
+  .catch((err) => console.error("❌ Error syncing MasterDB tables:", err));
+
+module.exports = db;
