@@ -1,12 +1,18 @@
 const express = require("express");
 const router = express.Router();
-const { saveCallDetails } = require("../controllers/CallDetails.controller");
+const {
+  saveCallDetails,
+  getWeeklyCallDurations,
+} = require("../controllers/CallDetails.controller");
+
 const auth = require("../middleware/auth");
 const multer = require("multer");
+const upload = multer(); // For FormData without files
 
-const upload = multer(); // ✅ Parses FormData without expecting files
-
-// ✅ Route to save only call metadata (form fields, no audio upload)
+// ✅ Save call metadata (POST)
 router.post("/", auth(), upload.none(), saveCallDetails);
+
+// ✅ Fetch weekly call durations (GET)
+router.get("/call-duration-weekly/:executiveId", auth(), getWeeklyCallDurations);
 
 module.exports = router;
