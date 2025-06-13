@@ -166,6 +166,61 @@ const markMultipleAsRead = async (req, res) => {
   }
 };
 
+const getAllNotificationsByUser = async (req, res) => {
+  const Notification = req.db.Notification;
+  const { userRole } = req.body;
+  const userId = req.user?.id;
+  const { page = 1 } = req.query;
+
+  const limit = 20;
+  const offset = (page - 1) * limit;
+
+  try {
+    let whereClause = {};
+
+    if (userRole?.toLowerCase() === "admin") {
+      whereClause = { targetRole: "admin" };
+    } else if (userRole?.toLowerCase() === "executive") {
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized: Missing user ID" });
+      }
+      whereClause = { userId, targetRole: "executive" };
+    } else {
+      return res.status(400).json({ message: "Invalid user role" });
+    }
+
+    const { count, rows: notifications } = await Notification.findAndCountAll({
+      where: whereClause,
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset,
+    });
+
+    // ✅ Count total unread notifications (not just in current page)
+    const unreadCount = await Notification.count({
+      where: {
+        ...whereClause,
+        is_read: false
+      }
+    });
+
+    const totalPages = Math.ceil(count / limit);
+
+    return res.status(200).json({
+      notifications,
+      pagination: {
+        totalNotifications: count,
+        currentPage: parseInt(page),
+        totalPages,
+        limit,
+        unreadCount // ✅ added here
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 module.exports = {
   markAsRead,
@@ -174,4 +229,5 @@ module.exports = {
   getAllNotificationsByUser,
   copyTextNotification,
   markMultipleAsRead,
+  getAllNotificationsByUser,
 };
