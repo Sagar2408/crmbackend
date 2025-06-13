@@ -137,6 +137,35 @@ const copyTextNotification = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+const markMultipleAsRead = async (req, res) => {
+  const Notification = req.db.Notification;
+  const { ids = [] } = req.body;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: "Notification IDs are required" });
+  }
+
+  try {
+    await Notification.update(
+      { is_read: true },
+      {
+        where: {
+          id: {
+            [Op.in]: ids,
+          },
+        },
+      }
+    );
+
+    return res.status(200).json({
+      message: `${ids.length} notification(s) marked as read`,
+    });
+  } catch (error) {
+    console.error("Bulk mark as read failed:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 
 module.exports = {
   markAsRead,
@@ -144,4 +173,5 @@ module.exports = {
   deleteOldNotifications,
   getAllNotificationsByUser,
   copyTextNotification,
+  markMultipleAsRead,
 };
