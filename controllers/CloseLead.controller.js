@@ -68,16 +68,6 @@ const createCloseLead = async (req, res) => {
         error: err.message,
       });
     }
-    if (
-      err.name === "SequelizeDatabaseError" &&
-      err.original?.sqlMessage?.includes("Data truncated")
-    ) {
-      return res.status(500).json({
-        message:
-          "Invalid status value for ClientLead. Please check the database schema.",
-        error: err.message,
-      });
-    }
     res
       .status(500)
       .json({ message: "Something went wrong.", error: err.message });
@@ -140,8 +130,59 @@ const getCloseLeadById = async (req, res) => {
   }
 };
 
+// ✅ New: Get close leads by executive name (for admin report filtering)
+const getCloseLeadsByExecutive = async (req, res) => {
+  try {
+    const { CloseLead, FreshLead, Lead, ClientLead } = req.db;
+    const { executiveName } = req.params;
+
+    if (!executiveName) {
+      return res.status(400).json({ message: "Executive name is required." });
+    }
+
+    const closeLeads = await CloseLead.findAll({
+      include: {
+        model: FreshLead,
+        as: "freshLead",
+        required: true,
+        include: {
+          model: Lead,
+          as: "lead",
+          required: true,
+          include: {
+            model: ClientLead,
+            as: "clientLead",
+            required: true,
+            where: { assignedToExecutive: executiveName },
+            attributes: ["status"],
+          },
+        },
+      },
+      order: [["createdAt", "DESC"]],
+    });
+
+    const response = closeLeads.map((lead) => ({
+      id: lead.id,
+      name: lead.name,
+      phone: lead.phone,
+      email: lead.email,
+      fresh_lead_id: lead.freshLeadId,
+      status: lead.freshLead?.lead?.clientLead?.status || null,
+    }));
+
+    res.status(200).json({
+      message: "Close leads fetched for executive",
+      data: response,
+    });
+  } catch (err) {
+    console.error("Error in getCloseLeadsByExecutive:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
 module.exports = {
   createCloseLead,
   getAllCloseLeads,
   getCloseLeadById,
+  getCloseLeadsByExecutive, // ✅ Exported new method
 };

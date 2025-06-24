@@ -50,6 +50,10 @@ module.exports = function initializeModels(sequelize) {
     sequelize,
     Sequelize
   );
+  db.SheetIntegration = require("../models/SheetIntegration.model")(
+    sequelize, Sequelize
+  );
+
   db.Team = require("../models/Team.model")(sequelize, Sequelize);
   db.Manager = require("../models/Manager.model")(sequelize, Sequelize);
   db.Hr = require("../models/Hr.model")(sequelize, Sequelize);
@@ -216,7 +220,7 @@ module.exports = function initializeModels(sequelize) {
   db.RolePermission.belongsTo(db.Users, {
     foreignKey: "user_id",
   });
-
+  
   // ------------------------
   // Sync Models
   // ------------------------

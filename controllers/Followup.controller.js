@@ -11,7 +11,7 @@ const createFollowUp = async (req, res) => {
       fresh_lead_id,
     } = req.body;
 
-    const { FollowUp, FreshLead, Lead, ClientLead } = req.db; // ✅ Dynamic DB
+    const { FollowUp, FreshLead, Lead, ClientLead } = req.db;
 
     if (
       !connect_via ||
@@ -63,7 +63,7 @@ const createFollowUp = async (req, res) => {
 // 📌 Update FollowUp with historical tracking
 const updateFollowUp = async (req, res) => {
   try {
-    const { FollowUp } = req.db; // ✅ Dynamic DB
+    const { FollowUp } = req.db;
     const id = req.params.id;
     const existingFollowUp = await FollowUp.findByPk(id);
 
@@ -119,16 +119,14 @@ const updateFollowUp = async (req, res) => {
     });
   } catch (err) {
     console.error("Error updating follow-up:", err);
-    return res
-      .status(500)
-      .json({ message: "Server error", error: err.message });
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-// 📌 Get FollowUps for executive
+// 📌 Get FollowUps for logged-in executive
 const getFollowUps = async (req, res) => {
   try {
-    const { FollowUp, FreshLead, Lead, ClientLead } = req.db; // ✅ Dynamic DB
+    const { FollowUp, FreshLead, Lead, ClientLead } = req.db;
     const username = req.user.username;
 
     const leads = await Lead.findAll({
@@ -199,8 +197,87 @@ const getFollowUps = async (req, res) => {
   }
 };
 
+// 📌 Get FollowUps for a specific executive (for admin panel)
+const getFollowUpsByExecutive = async (req, res) => {
+  try {
+    const { FollowUp, FreshLead, Lead, ClientLead } = req.db;
+    const { executiveName } = req.params;
+
+    if (!executiveName) {
+      return res.status(400).json({ message: "Executive name is required" });
+    }
+
+    const leads = await Lead.findAll({
+      where: { assignedToExecutive: executiveName },
+      attributes: ["id"],
+    });
+
+    const leadIds = leads.map((lead) => lead.id);
+    if (!leadIds.length) {
+      return res.status(200).json({ message: "No follow-ups", data: [] });
+    }
+
+    const freshLeads = await FreshLead.findAll({
+      where: { leadId: leadIds },
+      attributes: ["id", "leadId", "name", "phone", "email"],
+    });
+
+    const freshLeadIds = freshLeads.map((fl) => fl.id);
+    if (!freshLeadIds.length) {
+      return res.status(200).json({ message: "No follow-ups", data: [] });
+    }
+
+    const followUps = await FollowUp.findAll({
+      where: { fresh_lead_id: freshLeadIds },
+      include: [
+        {
+          model: FreshLead,
+          as: "freshLead",
+          attributes: ["name", "phone", "email"],
+          include: [
+            {
+              model: Lead,
+              as: "lead",
+              attributes: ["id", "clientLeadId"],
+              include: [
+                {
+                  model: ClientLead,
+                  as: "clientLead",
+                  attributes: ["status"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const formatted = followUps.map((fu) => {
+      const freshLead = fu.freshLead;
+      return {
+        ...fu.toJSON(),
+        freshLead: {
+          name: freshLead?.name,
+          phone: freshLead?.phone,
+          email: freshLead?.email,
+        },
+        clientLeadStatus: freshLead?.lead?.clientLead?.status || null,
+      };
+    });
+
+    return res.status(200).json({
+      message: `All follow-ups by executive ${executiveName} fetched successfully`,
+      data: formatted,
+    });
+  } catch (err) {
+    console.error("Error in getFollowUpsByExecutive:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 module.exports = {
   createFollowUp,
   updateFollowUp,
   getFollowUps,
+  getFollowUpsByExecutive, // ✅ export here
 };

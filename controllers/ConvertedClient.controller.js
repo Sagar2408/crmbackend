@@ -65,26 +65,22 @@ const createConvertedClient = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ message: "Something went wrong.", error: err.message });
+    res.status(500).json({ message: "Something went wrong.", error: err.message });
   }
 };
 
 const getAllConvertedClients = async (req, res) => {
   try {
     const { ConvertedClient } = req.db;
-
     const clients = await ConvertedClient.findAll();
+
     res.status(200).json({
       message: "All converted clients fetched successfully.",
       data: clients,
     });
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ message: "Something went wrong.", error: err.message });
+    res.status(500).json({ message: "Something went wrong.", error: err.message });
   }
 };
 
@@ -105,21 +101,18 @@ const getConvertedClientById = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ message: "Something went wrong.", error: err.message });
+    res.status(500).json({ message: "Something went wrong.", error: err.message });
   }
 };
 
+// 🔐 For Executive (self data)
 const getConvertedClientByExecutive = async (req, res) => {
   try {
     const { ConvertedClient, FreshLead, Lead, ClientLead } = req.db;
     const executiveName = req.user.username;
 
     if (!executiveName) {
-      return res
-        .status(400)
-        .json({ message: "Executive name not found in token." });
+      return res.status(400).json({ message: "Executive name not found in token." });
     }
 
     const clients = await ConvertedClient.findAll({
@@ -178,9 +171,70 @@ const getConvertedClientByExecutive = async (req, res) => {
   }
 };
 
+// ✅ NEW: For Admin (pass executive name via URL param)
+const getConvertedClientsByExecutiveNameForAdmin = async (req, res) => {
+  try {
+    const { ConvertedClient, FreshLead, Lead, ClientLead } = req.db;
+    const executiveName = req.params.executiveName;
+
+    if (!executiveName) {
+      return res.status(400).json({ message: "Executive name is required." });
+    }
+
+    const clients = await ConvertedClient.findAll({
+      include: [
+        {
+          model: FreshLead,
+          as: "freshLead",
+          required: true,
+          include: [
+            {
+              model: Lead,
+              as: "lead",
+              required: true,
+              include: [
+                {
+                  model: ClientLead,
+                  as: "clientLead",
+                  required: true,
+                  where: { assignedToExecutive: executiveName },
+                  attributes: ["status"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const formattedClients = clients.map((client) => ({
+      id: client.id,
+      fresh_lead_id: client.fresh_lead_id,
+      name: client.name,
+      phone: client.phone,
+      email: client.email,
+      country: client.country,
+      last_contacted: client.last_contacted,
+      status: client.freshLead?.lead?.clientLead?.status || "Unknown",
+    }));
+
+    res.status(200).json({
+      message: `Converted clients fetched for ${executiveName}`,
+      data: formattedClients,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      message: "Something went wrong.",
+      error: err.message,
+    });
+  }
+};
+
 module.exports = {
   createConvertedClient,
   getAllConvertedClients,
   getConvertedClientById,
   getConvertedClientByExecutive,
+  getConvertedClientsByExecutiveNameForAdmin,
 };

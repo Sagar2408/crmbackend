@@ -147,6 +147,12 @@ app.use(
   tenantResolver,
   require("./routes/ProcessPerson.routes")
 );
+app.use(
+  "/api/sheet-integration",
+  auth(),
+  tenantResolver,
+  require("./routes/SheetIntegration.routes")
+);
 app.use("/api/customer", tenantResolver, require("./routes/Customer.routes"));
 app.use("/api/email", tenantResolver, require("./routes/Email.routes"));
 app.use(
