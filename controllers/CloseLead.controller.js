@@ -133,46 +133,44 @@ const getCloseLeadById = async (req, res) => {
 // ✅ New: Get close leads by executive name (for admin report filtering)
 const getCloseLeadsByExecutive = async (req, res) => {
   try {
-    const { CloseLead, FreshLead, Lead, ClientLead } = req.db;
+    const { CloseLead, FreshLead, Lead } = req.db;
     const { executiveName } = req.params;
 
     if (!executiveName) {
       return res.status(400).json({ message: "Executive name is required." });
     }
 
+    // Step 1: Find all leads assigned to this executive
+    const assignedLeads = await Lead.findAll({
+      where: { assignedToExecutive: executiveName },
+      attributes: ["id"],
+    });
+
+    const leadIds = assignedLeads.map((lead) => lead.id);
+    if (leadIds.length === 0) {
+      return res.status(200).json({ data: [] });
+    }
+
+    // Step 2: Find all FreshLeads linked to those leads
+    const freshLeads = await FreshLead.findAll({
+      where: { leadId: leadIds },
+      attributes: ["id"],
+    });
+
+    const freshLeadIds = freshLeads.map((fl) => fl.id);
+    if (freshLeadIds.length === 0) {
+      return res.status(200).json({ data: [] });
+    }
+
+    // Step 3: Fetch CloseLeads using freshLeadIds
     const closeLeads = await CloseLead.findAll({
-      include: {
-        model: FreshLead,
-        as: "freshLead",
-        required: true,
-        include: {
-          model: Lead,
-          as: "lead",
-          required: true,
-          include: {
-            model: ClientLead,
-            as: "clientLead",
-            required: true,
-            where: { assignedToExecutive: executiveName },
-            attributes: ["status"],
-          },
-        },
-      },
+      where: { freshLeadId: freshLeadIds },
       order: [["createdAt", "DESC"]],
     });
 
-    const response = closeLeads.map((lead) => ({
-      id: lead.id,
-      name: lead.name,
-      phone: lead.phone,
-      email: lead.email,
-      fresh_lead_id: lead.freshLeadId,
-      status: lead.freshLead?.lead?.clientLead?.status || null,
-    }));
-
-    res.status(200).json({
-      message: "Close leads fetched for executive",
-      data: response,
+    return res.status(200).json({
+      message: `Close leads fetched for executive ${executiveName}`,
+      data: closeLeads,
     });
   } catch (err) {
     console.error("Error in getCloseLeadsByExecutive:", err);
