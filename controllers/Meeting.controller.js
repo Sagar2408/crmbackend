@@ -1,8 +1,6 @@
-
 // 📌 Get all meetings with pagination
 exports.getAllMeetings = async (req, res) => {
   const Meeting = req.db.Meeting;
-
   const { page = 1, limit = 20 } = req.query;
   const offset = (page - 1) * limit;
 
@@ -30,20 +28,13 @@ exports.getAllMeetings = async (req, res) => {
   }
 };
 
-// 📌 Get meetings by executive
+// 📌 Get meetings for logged-in executive
 exports.getMeetingByExecutive = async (req, res) => {
-  const Meeting = req.db.Meeting;
-  const Users = req.db.Users;
-  const FreshLead = req.db.FreshLead;
-  const Lead = req.db.Lead;
-  const ClientLead = req.db.ClientLead;
-
+  const { Meeting, Users, FreshLead, Lead, ClientLead } = req.db;
   const executiveUsername = req.user?.username;
 
   if (!executiveUsername) {
-    return res
-      .status(401)
-      .json({ error: "Unauthorized: Executive username missing in token" });
+    return res.status(401).json({ error: "Unauthorized: Executive username missing in token" });
   }
 
   try {
@@ -91,9 +82,7 @@ exports.getMeetingByExecutive = async (req, res) => {
     });
 
     if (meetings.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No meetings found for this executive" });
+      return res.status(404).json({ message: "No meetings found for this executive" });
     }
 
     const response = meetings.map((meeting) => {
@@ -121,12 +110,43 @@ exports.getMeetingByExecutive = async (req, res) => {
   }
 };
 
+// 📌 NEW: Get meetings by executiveName (for admin dashboard)
+exports.getMeetingsByExecutiveName = async (req, res) => {
+  const { Meeting, Users } = req.db;
+  const { executiveName } = req.params;
+
+  if (!executiveName) {
+    return res.status(400).json({ message: "Executive name is required." });
+  }
+
+  try {
+    const executive = await Users.findOne({
+      where: { username: executiveName },
+      attributes: ["id"],
+    });
+
+    if (!executive) {
+      return res.status(404).json({ message: "Executive not found" });
+    }
+
+    const meetings = await Meeting.findAll({
+      where: { executiveId: executive.id },
+      order: [["startTime", "DESC"]],
+    });
+
+    return res.status(200).json({
+      message: `Meetings for executive ${executiveName} fetched successfully.`,
+      data: meetings,
+    });
+  } catch (error) {
+    console.error("Error fetching meetings by executive name:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // 📌 Create a new meeting
 exports.createMeeting = async (req, res) => {
-  const Meeting = req.db.Meeting;
-  const FreshLead = req.db.FreshLead;
-  const Lead = req.db.Lead;
-  const ClientLead = req.db.ClientLead;
+  const { Meeting, FreshLead, Lead, ClientLead } = req.db;
 
   try {
     const {
@@ -140,13 +160,7 @@ exports.createMeeting = async (req, res) => {
     } = req.body;
     const executiveId = req.user.id;
 
-    if (
-      !clientName ||
-      !clientEmail ||
-      !clientPhone ||
-      !startTime ||
-      !fresh_lead_id
-    ) {
+    if (!clientName || !clientEmail || !clientPhone || !startTime || !fresh_lead_id) {
       return res.status(400).json({
         message:
           "clientName, clientEmail, clientPhone, startTime, and fresh_lead_id are required",
@@ -166,22 +180,18 @@ exports.createMeeting = async (req, res) => {
     if (endTime) {
       const endDate = new Date(endTime);
       if (isNaN(endDate.getTime()) || endDate <= startDate) {
-        return res
-          .status(400)
-          .json({ message: "endTime must be after startTime" });
+        return res.status(400).json({ message: "endTime must be after startTime" });
       }
     }
 
     const freshLead = await FreshLead.findByPk(fresh_lead_id);
-    if (!freshLead)
-      return res.status(404).json({ message: "FreshLead not found" });
+    if (!freshLead) return res.status(404).json({ message: "FreshLead not found" });
 
     const lead = await Lead.findByPk(freshLead.leadId);
     if (!lead) return res.status(404).json({ message: "Lead not found" });
 
     const clientLead = await ClientLead.findByPk(lead.clientLeadId);
-    if (!clientLead)
-      return res.status(404).json({ message: "ClientLead not found" });
+    if (!clientLead) return res.status(404).json({ message: "ClientLead not found" });
 
     const transaction = await Meeting.sequelize.transaction();
     try {
@@ -216,6 +226,7 @@ exports.createMeeting = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 // 📌 Update a meeting
 exports.updateMeeting = async (req, res) => {
   const Meeting = req.db.Meeting;
@@ -223,7 +234,7 @@ exports.updateMeeting = async (req, res) => {
   try {
     const { title, description, startTime, endTime } = req.body;
 
-    let meeting = await Meeting.findByPk(req.params.id);
+    const meeting = await Meeting.findByPk(req.params.id);
     if (!meeting) return res.status(404).json({ message: "Meeting not found" });
 
     await meeting.update({ title, description, startTime, endTime });
