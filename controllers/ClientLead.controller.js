@@ -5,7 +5,7 @@ const xlsx = require("xlsx");
 const csv = require("csv-parser");
 
 // Allowed field mappings
-const nameFields = ["name", "username", "full name", "contact name", "lead name","firstname"];
+const nameFields = ["name", "username", "full name", "contact name", "lead name", "firstname"];
 const phoneFields = ["phone", "phoneno", "ph.no", "contact number", "mobile", "telephone"];
 const emailFields = ["email", "email address", "e-mail", "mail"];
 
@@ -21,6 +21,24 @@ const mapFieldName = (fieldName) => {
   return lower;
 };
 
+// Phone sanitiser: preserve international format as-is
+const sanitisePhone = (val) => {
+  if (typeof val === "object" && val !== null) {
+    if (val.w) return String(val.w).trim();
+    if (val.v !== undefined) val = val.v;
+  }
+
+  if (typeof val === "number") {
+    return Number(val).toLocaleString("fullwide", { useGrouping: false });
+  }
+
+  if (typeof val === "string") {
+    return val.trim();
+  }
+
+  return "";
+};
+
 // CSV parser
 const processCSV = (filePath) => {
   return new Promise((resolve, reject) => {
@@ -31,7 +49,15 @@ const processCSV = (filePath) => {
         const mappedRow = {};
         for (const key in row) {
           const mappedKey = mapFieldName(key);
-          mappedRow[mappedKey] = row[key];
+          let value = row[key];
+
+          if (mappedKey === "phone") {
+            value = sanitisePhone(value);
+          } else if (typeof value === "string") {
+            value = value.trim();
+          }
+
+          mappedRow[mappedKey] = value;
         }
         fileData.push(mappedRow);
       })
@@ -53,18 +79,12 @@ const processExcel = (filePath) => {
       let value = record[key];
 
       if (mappedKey === "phone") {
-        if (typeof value === "object" && value !== null && value.w) {
-          value = value.w;
-        }
-
-        value = String(value).replace(/[^\d]/g, "").slice(0, 15);
-        if (value.length < 8) {
-          console.warn("⚠️ Invalid phone number:", record[key]);
-          value = "0";
-        }
+        value = sanitisePhone(value);
+      } else if (typeof value === "string") {
+        value = value.trim();
       }
 
-      mapped[mappedKey] = typeof value === "string" ? value.trim() : value;
+      mapped[mappedKey] = value;
     }
     return mapped;
   });
@@ -129,7 +149,7 @@ const uploadFile = async (req, res) => {
   }
 };
 
-// Other functions
+// Get client leads with pagination
 const getClientLeads = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -154,6 +174,7 @@ const getClientLeads = async (req, res) => {
   }
 };
 
+// Get all client leads
 const getAllClientLeads = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -171,7 +192,7 @@ const getAllClientLeads = async (req, res) => {
   }
 };
 
-
+// Assign executive
 const assignExecutive = async (req, res) => {
   try {
     const { ClientLead, Users, Notification } = req.db;
@@ -204,6 +225,7 @@ const assignExecutive = async (req, res) => {
   }
 };
 
+// Get leads by executive
 const getLeadsByExecutive = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -223,6 +245,7 @@ const getLeadsByExecutive = async (req, res) => {
   }
 };
 
+// Get deal funnel data
 const getDealFunnel = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -254,7 +277,7 @@ const getDealFunnel = async (req, res) => {
   }
 };
 
-// 📌 Get Client Leads with status "Follow-Up"
+// Get follow-up leads
 const getFollowUpClientLeads = async (req, res) => {
   try {
     const { ClientLead } = req.db;
@@ -275,12 +298,11 @@ const getFollowUpClientLeads = async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching follow-up leads:", err);
-    res
-      .status(500)
-      .json({ message: "Failed to fetch follow-up leads", error: err.message });
+    res.status(500).json({ message: "Failed to fetch follow-up leads", error: err.message });
   }
 };
 
+// Export all functions
 module.exports = {
   upload,
   uploadFile,
@@ -290,5 +312,4 @@ module.exports = {
   getDealFunnel,
   getFollowUpClientLeads,
   getAllClientLeads
-
 };
