@@ -200,7 +200,7 @@ exports.updateCallTime = async (req, res) => {
   }
 };
 
-// ✅ Get Admin Dashboard
+// Admin Dashboard
 exports.getAdminDashboard = async (req, res) => {
   try {
     const { ExecutiveActivity } = req.db;
@@ -220,6 +220,7 @@ exports.getAdminDashboard = async (req, res) => {
   }
 };
 
+// Attendance Summary
 exports.getAttendanceByDateRange = async (req, res) => {
   const { ExecutiveActivity, Users } = req.db;
   try {
@@ -234,15 +235,9 @@ exports.getAttendanceByDateRange = async (req, res) => {
     const start = parseISO(startDate);
     const end = parseISO(endDate);
 
-    // Step 1: Get all ExecutiveIds with their names
     const executiveIds = await ExecutiveActivity.findAll({
       attributes: ["ExecutiveId"],
-      include: [
-        {
-          model: Users,
-          attributes: ["username"],
-        },
-      ],
+      include: [{ model: Users, attributes: ["username"] }],
       group: ["ExecutiveId", "User.id"],
     });
 
@@ -251,39 +246,27 @@ exports.getAttendanceByDateRange = async (req, res) => {
       name: entry.User?.username || "Unknown",
     }));
 
-    // Step 2: Get logs within the date range
     const logs = await ExecutiveActivity.findAll({
-      where: {
-        createdAt: {
-          [Op.between]: [start, end],
-        },
-      },
+      where: { createdAt: { [Op.between]: [start, end] } },
     });
 
-    // Step 3: Map logs by executive and date
     const logsMap = {};
     logs.forEach((log) => {
       const date = format(new Date(log.createdAt), "yyyy-MM-dd");
-      if (!logsMap[log.ExecutiveId]) {
-        logsMap[log.ExecutiveId] = {};
-      }
+      if (!logsMap[log.ExecutiveId]) logsMap[log.ExecutiveId] = {};
       logsMap[log.ExecutiveId][date] = log;
     });
 
-    // Step 4: Generate date list
     const dateList = eachDayOfInterval({ start, end }).map((date) =>
       format(date, "yyyy-MM-dd")
     );
 
-    // Step 5: Build report
     const report = allExecutives.map(({ id, name }) => {
       const attendance = {};
-
       dateList.forEach((date) => {
         const log = logsMap[id]?.[date];
         attendance[date] = !log || log.workTime === null ? "Absent" : "Present";
       });
-
       return {
         executiveId: id,
         executiveName: name,
@@ -302,6 +285,34 @@ exports.getAttendanceByDateRange = async (req, res) => {
   }
 };
 
+// Fetch All Activities (with optional date range)
+exports.getAllExecutiveActivitiesByDate = async (req, res) => {
+  const Activity = req.db.ExecutiveActivity;
+  const { startDate, endDate } = req.query;
+
+  try {
+    let where = {};
+    if (startDate && endDate) {
+      where.activityDate = { [Op.between]: [startDate, endDate] };
+    }
+
+    const activities = await Activity.findAll({ where });
+
+    const groupedData = activities.reduce((acc, item) => {
+      const date = item.activityDate;
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(item);
+      return acc;
+    }, {});
+
+    res.status(200).json(groupedData);
+  } catch (error) {
+    console.error("Error fetching activity data:", error);
+    res.status(500).json({ error: "Failed to fetch activity data." });
+  }
+};
+
+// Get Executive Activity by Executive ID
 exports.getExecutiveActivityByExecutiveId = async (req, res) => {
   const { executiveId } = req.params;
   const { ExecutiveActivity } = req.db;
@@ -309,7 +320,7 @@ exports.getExecutiveActivityByExecutiveId = async (req, res) => {
   try {
     const activities = await ExecutiveActivity.findAll({
       where: { ExecutiveId: executiveId },
-      order: [["activityDate", "DESC"]], // optional: sort by recent first
+      order: [["activityDate", "DESC"]],
     });
 
     if (!activities || activities.length === 0) {
@@ -324,5 +335,31 @@ exports.getExecutiveActivityByExecutiveId = async (req, res) => {
     res
       .status(500)
       .json({ message: "Server error while fetching executive activities" });
+  }
+};
+
+// ✅ NEW: Get Executive Summary by Date Range
+exports.getExecutiveSummaryByRange = async (req, res) => {
+  const { ExecutiveActivity } = req.db;
+  const { executiveId } = req.params;
+  const { startDate, endDate } = req.query;
+
+  if (!executiveId || !startDate || !endDate) {
+    return res.status(400).json({ message: "Missing parameters" });
+  }
+
+  try {
+    const data = await ExecutiveActivity.findAll({
+      where: {
+        ExecutiveId: executiveId,
+        activityDate: { [Op.between]: [startDate, endDate] },
+      },
+      order: [["activityDate", "ASC"]],
+    });
+
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Error fetching summary:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };

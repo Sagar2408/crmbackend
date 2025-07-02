@@ -10,6 +10,13 @@ router.post("/updateCallTime", executiveActivityController.updateCallTime);
 router.post("/trackLeadVisit", executiveActivityController.trackLeadVisit);
 router.get("/adminDashboard", executiveActivityController.getAdminDashboard);
 router.get("/attendance", executiveActivityController.getAttendanceByDateRange);
+
+// ✅ New route for summary by date range
+router.get(
+  "/summary/:executiveId",
+  executiveActivityController.getExecutiveSummaryByRange
+);
+
 router.get(
   "/:executiveId",
   executiveActivityController.getExecutiveActivityByExecutiveId
